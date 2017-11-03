@@ -1,0 +1,5 @@
+build*
+tests/output
+*.exe
+*.dll
+.vs

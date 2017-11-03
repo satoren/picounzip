@@ -28,4 +28,4 @@ add_test(NAME deflate_reader COMMAND deflate_reader WORKING_DIRECTORY ${CMAKE_CU
 add_test(NAME unzip_from_file COMMAND unzip_from_file WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME unzip_from_file_cpp03 COMMAND unzip_from_file_cpp03 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME unzip_from_file_header_only COMMAND unzip_from_file_header_only WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-add_test(NAME unzip_from_large_file COMMAND unzip_from_file WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME unzip_from_large_file COMMAND unzip_from_large_file WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})

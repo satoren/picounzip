@@ -1,11 +1,16 @@
 import zipfile
 import os
-import tempfile
+import sys
+
+if sys.version_info >= (3,2):
+    import tempfile
+else:
+    from backports import tempfile
 
 import random
 
 def zip_archive_with_dir(zipfilename,arcdir):
-    with zipfile.ZipFile(zipfilename, 'w',zipfile.ZIP_DEFLATED) as myzip:
+    with zipfile.ZipFile(zipfilename, 'w',zipfile.ZIP_DEFLATED,True) as myzip:
         for root, dirs, files in os.walk(arcdir):
             for file in files:
                 filename = os.path.join(root, file)
@@ -15,7 +20,7 @@ def zip_archive_with_dir(zipfilename,arcdir):
 with tempfile.TemporaryDirectory() as largedata_tempdir:
     with open(os.path.join(largedata_tempdir,'zero_largedata'),'wb') as f:
         for i in range(1024 * 6):
-            f.write(bytes(1024 * 1024))
+            f.write(b'\x00' * 1024 * 1024)
     zip_archive_with_dir('resource/large_data/zero_largedata.zip',largedata_tempdir)
 
 
