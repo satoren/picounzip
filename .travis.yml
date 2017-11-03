@@ -1,0 +1,31 @@
+language: cpp
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gcc-7
+    - g++-7
+    - cmake3
+before_install:
+  - pip install --user 'requests[security]'
+  - pip install --user cpp-coveralls
+  - pip install --user backports.tempfile
+  - git submodule update --init
+install:
+- if [ "$CXX" = "g++" ]; then export CXX="g++-7" CC="gcc-7"; fi
+
+script:
+  - cd tests && python create_large_testdata.py && cd ../
+  - cmake . -DPICOUNZIP_TEST_COVERAGE=On && make && ctest --output-on-failure
+after_success: |
+
+  if [ "$CXX" = "g++-7" ]; then
+    export GCOV="gcov-7"
+  elif [ "$CXX" = "g++" ]; then
+    export GCOV="gcov"
+  fi
+  if [ "$COVERAGE" = "On"" ]; then
+     coveralls --gcov ${GCOV} --exclude tests --gcov-options '\-lp'
+  fi
