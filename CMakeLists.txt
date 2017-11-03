@@ -28,5 +28,11 @@ add_subdirectory(src)
 include (CTest)
 enable_testing()
 
+if(MSVC11)
+# extends tuple size for googletest
+# https://blogs.msdn.microsoft.com/vcblog/2011/09/12/c11-features-in-visual-c-11/
+add_definitions(-D_VARIADIC_MAX=10)
+endif()
+
 add_subdirectory(googletest)
 add_subdirectory(tests)
