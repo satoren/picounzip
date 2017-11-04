@@ -1,13 +1,14 @@
 # picounzip
 extract ZIP archive library for c++
+[![Build Status](https://travis-ci.org/satoren/picounzip.svg?branch=master)](https://travis-ci.org/satoren/picounzip)
+[![Build status](https://ci.appveyor.com/api/projects/status/qqwfqbltcky42um6/branch/master?svg=true)](https://ci.appveyor.com/project/satoren/picounzip/branch/master)
+
 
 Licensed under [Boost Software License](http://www.boost.org/LICENSE_1_0.txt)
 
-
 ## Requirements
 - zlib
-- C++03 compiler (some limitation) or later.
-
+- C++03 compiler (some limitation) + (stdint.h header) or later.
 
 ## Introduction
 Extract zip archive for C++
