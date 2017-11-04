@@ -123,7 +123,7 @@ public:
     stream_holder_ = 0;
   }
 
-  const std::vector<zip_entry>& entrylist();
+  const std::vector<zip_entry> &entrylist();
   std::vector<std::string> namelist();
   zip_entry getentry(const std::string &name);
 
@@ -153,7 +153,6 @@ private:
 
   // for entry cache
   bool read_header();
-  bool read_entry();
   std::vector<zip_entry> entry_list_;
 };
 

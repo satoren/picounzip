@@ -350,7 +350,7 @@ build_entry_list(std::istream &is, const unzip::end_of_central_dir &eocd) {
     uint16_t filename_size = read_stream<uint16_t>(is);
     uint16_t ext_field_size = read_stream<uint16_t>(is);
     uint16_t filecomment_size = read_stream<uint16_t>(is);
-    read_stream<uint16_t>(is);//diskno
+    read_stream<uint16_t>(is); // diskno
     info.internal_attr = read_stream<uint16_t>(is);
     info.external_attr = read_stream<uint32_t>(is);
     info.local_file_header_offset = read_stream<uint32_t>(is);
@@ -360,7 +360,7 @@ build_entry_list(std::istream &is, const unzip::end_of_central_dir &eocd) {
 
     search_zip64_size_from_extra(info);
 
-	ret.push_back(info);
+    ret.push_back(info);
   }
 
   return ret;
@@ -434,16 +434,16 @@ PICOUNZIP_INLINE unzip::unzip(const std::string &filepath)
   read_header();
 }
 
-PICOUNZIP_INLINE const std::vector<zip_entry>& unzip::entrylist() {
+PICOUNZIP_INLINE const std::vector<zip_entry> &unzip::entrylist() {
 
-    if (entry_list_.empty()) {
+  if (entry_list_.empty()) {
     entry_list_ = detail::build_entry_list(stream_, header_);
   }
   return entry_list_;
 }
 PICOUNZIP_INLINE std::vector<std::string> unzip::namelist() {
   std::vector<std::string> ret;
-  const std::vector<zip_entry>&zipentry = entrylist();
+  const std::vector<zip_entry> &zipentry = entrylist();
   for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
        it != zipentry.end(); ++it) {
     ret.push_back(it->filename);
@@ -452,15 +452,14 @@ PICOUNZIP_INLINE std::vector<std::string> unzip::namelist() {
 }
 PICOUNZIP_INLINE zip_entry unzip::getentry(const std::string &name) {
 
-	const std::vector<zip_entry>&zipentry = entrylist();
-	for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
-		it != zipentry.end(); ++it) {
-		if (it->filename == name) {
-			return *it;
-		}
-	}
-	return zip_entry();
-
+  const std::vector<zip_entry> &zipentry = entrylist();
+  for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
+       it != zipentry.end(); ++it) {
+    if (it->filename == name) {
+      return *it;
+    }
+  }
+  return zip_entry();
 }
 
 PICOUNZIP_INLINE bool unzip::extract(const zip_entry &info,
@@ -510,7 +509,7 @@ PICOUNZIP_INLINE bool unzip::extract(const std::string &filename,
   return extract(getentry(filename), path);
 }
 PICOUNZIP_INLINE bool unzip::extractall(const std::string &path) {
-  const std::vector<zip_entry>&zipentry = entrylist();
+  const std::vector<zip_entry> &zipentry = entrylist();
 
   bool ret = true;
   for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
@@ -522,11 +521,6 @@ PICOUNZIP_INLINE bool unzip::extractall(const std::string &path) {
 
 PICOUNZIP_INLINE bool unzip::read_header() {
   header_ = detail::read_directory_end(stream_);
-  return true;
-}
-PICOUNZIP_INLINE bool unzip::read_entry() {
-
-
   return true;
 }
 PICOUNZIP_INLINE unzip_file_stream::unzip_file_stream(unzip &unzip,
@@ -550,7 +544,7 @@ PICOUNZIP_INLINE unzip_file_stream::unzip_file_streambuf::unzip_file_streambuf(
 }
 
 PICOUNZIP_INLINE
-    unzip_file_stream::unzip_file_streambuf::~unzip_file_streambuf() {
+unzip_file_stream::unzip_file_streambuf::~unzip_file_streambuf() {
   delete decompresser_;
   decompresser_ = 0;
 }
