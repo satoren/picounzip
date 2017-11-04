@@ -75,8 +75,8 @@ struct zip_entry {
   uint16_t compress_type;
   time_t date_time;
   uint32_t CRC;
-  int64_t compress_size;
-  int64_t file_size;
+  uint64_t compress_size;
+  uint64_t file_size;
   uint32_t internal_attr;
   uint32_t external_attr;
   int64_t local_file_header_offset;

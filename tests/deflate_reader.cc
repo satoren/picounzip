@@ -24,7 +24,7 @@ TEST_F(deflate_readerTest, read_defrate_stream) {
     deflate_reader::read_result ret = reader.read(buffer, 512);
 
     EXPECT_STREQ(0, ret.error);
-    EXPECT_EQ(52, ret.size);
+    EXPECT_EQ(size_t(52), ret.size);
     EXPECT_STREQ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
                  buffer);
   }

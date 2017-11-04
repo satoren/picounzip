@@ -24,9 +24,9 @@ TEST_F(picounzipTest, FileEntry) {
 
   zip_entry makefile = file1.getentry("string_view-master/Makefile");
   EXPECT_EQ("string_view-master/Makefile", makefile.filename);
-  EXPECT_EQ(0x3a67f42a, makefile.CRC);
-  EXPECT_EQ(486, makefile.file_size);
-  EXPECT_EQ(190, makefile.compress_size);
+  EXPECT_EQ(0x3a67f42aU, makefile.CRC);
+  EXPECT_EQ(486U, makefile.file_size);
+  EXPECT_EQ(190U, makefile.compress_size);
   EXPECT_EQ(ZIP_DEFLATED, makefile.compress_type);
 }
 

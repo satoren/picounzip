@@ -150,7 +150,7 @@ template <typename readtype> readtype read_stream(std::istream &is) {
 
   if (is_big_endian()) {
     // swap endianness
-    for (int i = 0; i < sizeof(readtype) / 2; ++i) {
+    for (size_t i = 0; i < sizeof(readtype) / 2; ++i) {
       std::swap(buffer[i], buffer[sizeof(readtype) - i - 1]);
     }
   }
@@ -186,7 +186,6 @@ end_of_central_dir_pos(std::istream &stream) {
   const int32_t BUFF_SIZE = 64;
   stream.seekg(0, std::istream::end);
   std::istream::pos_type filesize = stream.tellg();
-  std::istream::pos_type found = 0;
   std::istream::pos_type readpos = filesize;
   char buf[BUFF_SIZE];
   while (readpos > std::istream::pos_type(0)) {
@@ -197,7 +196,6 @@ end_of_central_dir_pos(std::istream &stream) {
     readpos -= readsize;
 
     stream.seekg(readpos);
-    size_t pos = BUFF_SIZE;
     stream.read(buf, readsize);
 
     size_t i = readsize - 3;
@@ -234,7 +232,6 @@ find_directory64_end(std::istream &stream, std::streampos offset) {
 PICOUNZIP_INLINE bool read_directory64_end(std::istream &stream,
                                            std::streampos offset,
                                            unzip::end_of_central_dir &ret) {
-  static const std::streamoff directory64_end_len = 20;
   stream.seekg(offset);
 
   uint32_t signature = read_stream<uint32_t>(stream);
@@ -352,7 +349,7 @@ build_info_map(std::istream &is, const unzip::end_of_central_dir &eocd) {
     uint16_t filename_size = read_stream<uint16_t>(is);
     uint16_t ext_field_size = read_stream<uint16_t>(is);
     uint16_t filecomment_size = read_stream<uint16_t>(is);
-    uint16_t diskno = read_stream<uint16_t>(is);
+    read_stream<uint16_t>(is);//diskno
     info.internal_attr = read_stream<uint16_t>(is);
     info.external_attr = read_stream<uint32_t>(is);
     info.local_file_header_offset = read_stream<uint32_t>(is);
@@ -590,7 +587,7 @@ unzip_file_stream::unzip_file_streambuf::underflow(void) {
     source_.seekg(current_pos_);
 
     size_t readsize = BUFFER_SIZE;
-    if (readsize > remain_read_size_) {
+    if (std::streamsize(readsize) > remain_read_size_) {
       readsize = size_t(remain_read_size_);
     }
 
