@@ -319,12 +319,13 @@ PICOUNZIP_INLINE void search_zip64_size_from_extra(zip_entry &info) {
   }
 }
 
-PICOUNZIP_INLINE std::map<std::string, zip_entry>
-build_info_map(std::istream &is, const unzip::end_of_central_dir &eocd) {
+PICOUNZIP_INLINE std::vector<zip_entry>
+build_entry_list(std::istream &is, const unzip::end_of_central_dir &eocd) {
 
   std::istream::pos_type central_dir_start = eocd.directory_offset;
 
-  std::map<std::string, zip_entry> ret;
+  std::vector<zip_entry> ret;
+  ret.reserve(eocd.directory_records);
 
   is.seekg(central_dir_start);
   for (size_t entry = 0; entry < eocd.directory_records; ++entry) {
@@ -359,7 +360,7 @@ build_info_map(std::istream &is, const unzip::end_of_central_dir &eocd) {
 
     search_zip64_size_from_extra(info);
 
-    ret[info.filename] = info;
+	ret.push_back(info);
   }
 
   return ret;
@@ -433,35 +434,33 @@ PICOUNZIP_INLINE unzip::unzip(const std::string &filepath)
   read_header();
 }
 
-PICOUNZIP_INLINE std::vector<zip_entry> unzip::entrylist() {
-  std::vector<zip_entry> ret;
-  const std::map<std::string, zip_entry> &infomap = info_map();
-  ret.reserve(infomap.size());
-  for (std::map<std::string, zip_entry>::const_iterator it = infomap.begin();
-       it != infomap.end(); ++it) {
-    ret.push_back(it->second);
+PICOUNZIP_INLINE const std::vector<zip_entry>& unzip::entrylist() {
+
+    if (entry_list_.empty()) {
+    entry_list_ = detail::build_entry_list(stream_, header_);
   }
-  return ret;
+  return entry_list_;
 }
 PICOUNZIP_INLINE std::vector<std::string> unzip::namelist() {
   std::vector<std::string> ret;
-  const std::map<std::string, zip_entry> &infomap = info_map();
-  ret.reserve(infomap.size());
-  for (std::map<std::string, zip_entry>::const_iterator it = infomap.begin();
-       it != infomap.end(); ++it) {
-    ret.push_back(it->first);
+  const std::vector<zip_entry>&entries = entrylist();
+  for (std::vector<zip_entry>::const_iterator it = entries.begin();
+       it != entries.end(); ++it) {
+    ret.push_back(it->filename);
   }
   return ret;
 }
 PICOUNZIP_INLINE zip_entry unzip::getentry(const std::string &name) {
-  const std::map<std::string, zip_entry> &infomap = info_map();
-  std::map<std::string, zip_entry>::const_iterator match = infomap.find(name);
 
-  if (match != infomap.end()) {
-    return match->second;
-  }
+	const std::vector<zip_entry>&entries = entrylist();
+	for (std::vector<zip_entry>::const_iterator it = entries.begin();
+		it != entries.end(); ++it) {
+		if (it->filename == name) {
+			return *it;
+		}
+	}
+	return zip_entry();
 
-  return zip_entry();
 }
 
 PICOUNZIP_INLINE bool unzip::extract(const zip_entry &info,
@@ -511,12 +510,13 @@ PICOUNZIP_INLINE bool unzip::extract(const std::string &filename,
   return extract(getentry(filename), path);
 }
 PICOUNZIP_INLINE bool unzip::extractall(const std::string &path) {
-  const std::map<std::string, zip_entry> &infomap = info_map();
+  const std::vector<zip_entry> &infomap = entrylist();
+  const std::vector<zip_entry>&entries = entrylist();
 
   bool ret = true;
-  for (std::map<std::string, zip_entry>::const_iterator it = infomap.begin();
-       it != infomap.end(); ++it) {
-    ret &= extract(it->first, path);
+  for (std::vector<zip_entry>::const_iterator it = entries.begin();
+       it != entries.end(); ++it) {
+    ret &= extract(*it, path);
   }
   return ret;
 }
@@ -526,16 +526,10 @@ PICOUNZIP_INLINE bool unzip::read_header() {
   return true;
 }
 PICOUNZIP_INLINE bool unzip::read_entry() {
-  info_map_ = detail::build_info_map(stream_, header_);
+
+
   return true;
 }
-PICOUNZIP_INLINE const std::map<std::string, zip_entry> &unzip::info_map() {
-  if (info_map_.empty()) {
-    read_entry();
-  }
-  return info_map_;
-}
-
 PICOUNZIP_INLINE unzip_file_stream::unzip_file_stream(unzip &unzip,
                                                       const zip_entry &entry)
     : std::istream(&steam_buf_), steam_buf_(unzip.stream(), entry) {}
