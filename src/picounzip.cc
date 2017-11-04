@@ -443,18 +443,18 @@ PICOUNZIP_INLINE const std::vector<zip_entry>& unzip::entrylist() {
 }
 PICOUNZIP_INLINE std::vector<std::string> unzip::namelist() {
   std::vector<std::string> ret;
-  const std::vector<zip_entry>&entries = entrylist();
-  for (std::vector<zip_entry>::const_iterator it = entries.begin();
-       it != entries.end(); ++it) {
+  const std::vector<zip_entry>&zipentry = entrylist();
+  for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
+       it != zipentry.end(); ++it) {
     ret.push_back(it->filename);
   }
   return ret;
 }
 PICOUNZIP_INLINE zip_entry unzip::getentry(const std::string &name) {
 
-	const std::vector<zip_entry>&entries = entrylist();
-	for (std::vector<zip_entry>::const_iterator it = entries.begin();
-		it != entries.end(); ++it) {
+	const std::vector<zip_entry>&zipentry = entrylist();
+	for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
+		it != zipentry.end(); ++it) {
 		if (it->filename == name) {
 			return *it;
 		}
@@ -510,12 +510,11 @@ PICOUNZIP_INLINE bool unzip::extract(const std::string &filename,
   return extract(getentry(filename), path);
 }
 PICOUNZIP_INLINE bool unzip::extractall(const std::string &path) {
-  const std::vector<zip_entry> &infomap = entrylist();
-  const std::vector<zip_entry>&entries = entrylist();
+  const std::vector<zip_entry>&zipentry = entrylist();
 
   bool ret = true;
-  for (std::vector<zip_entry>::const_iterator it = entries.begin();
-       it != entries.end(); ++it) {
+  for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
+       it != zipentry.end(); ++it) {
     ret &= extract(*it, path);
   }
   return ret;
