@@ -35,54 +35,57 @@ TEST_F(picounzipTest, ExtractFromMovedStream) {
   {
     unzip dont_add_dirent(
         std::ifstream("resource/extract/def.zip", std::ios::binary));
-    EXPECT_EQ(true, dont_add_dirent.extractall("output/def"));
+    dont_add_dirent.extractall("output/def");
+	//check extracted file
+	std::ifstream fdef("output/def/def.txt", std::ios::binary);
+	std::string s;
+	fdef >> s;
+	EXPECT_EQ("aaaaaa", s);
   }
   {
     unzip defaultopt(
         std::ifstream("resource/extract/default.zip", std::ios::binary));
-    EXPECT_EQ(true, defaultopt.extractall("output/default"));
+    defaultopt.extractall("output/default");
   }
   {
     unzip storeonly(
         std::ifstream("resource/extract/storeonly.zip", std::ios::binary));
-    EXPECT_EQ(true, storeonly.extractall("output/storeonly"));
+    storeonly.extractall("output/storeonly");
   }
   {
     unzip addcomment(
         std::ifstream("resource/extract/addcomment.zip", std::ios::binary));
-    EXPECT_EQ(true, addcomment.extractall("output/addcomment"));
+    addcomment.extractall("output/addcomment");
     EXPECT_EQ("zip comment", addcomment.comment());
   }
   {
     unzip bettercompress(
         std::ifstream("resource/extract/bettercompress.zip", std::ios::binary));
-    EXPECT_EQ(true, bettercompress.extractall("output/bettercompress"));
+    bettercompress.extractall("output/bettercompress");
   }
   {
     unzip dont_add_dirent(std::ifstream("resource/extract/dont_add_dirent.zip",
                                         std::ios::binary));
-    EXPECT_EQ(true, dont_add_dirent.extractall("output/dont_add_dirent"));
+    dont_add_dirent.extractall("output/dont_add_dirent");
   }
 }
 
 TEST_F(picounzipTest, ExtractByStream) {
-	using namespace picounzip;
+  using namespace picounzip;
 
-	unzip file1("resource/extract/def.zip");
-	
-	zip_entry deftext = file1.getentry("def.txt");
+  unzip file1("resource/extract/def.zip");
 
-	unzip_file_stream unzifs(file1, deftext);
-	std::string s;
-	unzifs >> s;
-	EXPECT_EQ("aaaaaa", s);
+  zip_entry deftext = file1.getentry("def.txt");
 
+  unzip_file_stream unzifs(file1, deftext);
+  std::string s;
+  unzifs >> s;
+  EXPECT_EQ("aaaaaa", s);
 
-	unzip_file_stream unzifs2(file1, deftext);
+  unzip_file_stream unzifs2(file1, deftext);
 
-	std::copy(std::istreambuf_iterator<char>(unzifs2),
-		std::istreambuf_iterator<char>(),
-		std::ostreambuf_iterator<char>(std::cout)
-	);
+  std::copy(std::istreambuf_iterator<char>(unzifs2),
+            std::istreambuf_iterator<char>(),
+            std::ostreambuf_iterator<char>(std::cout));
 }
 #endif // PICOUNZIP_USE_CPP11

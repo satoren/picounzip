@@ -141,7 +141,7 @@ PICOUNZIP_INLINE bool is_big_endian() {
     char c[4];
   } e = {0x01000000};
 
-  return e.c[0];
+  return e.c[0] != 0;
 }
 
 template <typename readtype> readtype read_stream(std::istream &is) {
@@ -251,16 +251,20 @@ PICOUNZIP_INLINE bool read_directory64_end(std::istream &stream,
   return true;
 }
 PICOUNZIP_INLINE unzip::end_of_central_dir
-read_directory_end(std::istream &is) {
+read_directory_end(std::istream &is, error_info &error) {
   std::istream::pos_type eocd_pos = end_of_central_dir_pos(is);
   if (!eocd_pos) {
-    throw unzip_error("bad zip file");
+    error = error_info(error_info::UNZIP_BAD_ZIP_FILE,
+                       "End of central directory not found");
+    return unzip::end_of_central_dir();
   }
   is.seekg(eocd_pos);
 
   uint32_t signature = read_stream<uint32_t>(is);
   if (signature != DIRECTORY_END_SIGNATURE) {
-    throw unzip_error("bad zip file");
+    error = error_info(error_info::UNZIP_BAD_ZIP_FILE,
+                       "End of central directory not found");
+    return unzip::end_of_central_dir();
   }
   unzip::end_of_central_dir ret;
   ret.disk_no = read_stream<uint16_t>(is);
@@ -285,7 +289,8 @@ read_directory_end(std::istream &is) {
   return ret;
 }
 
-PICOUNZIP_INLINE void search_zip64_size_from_extra(zip_entry &info) {
+PICOUNZIP_INLINE void search_zip64_size_from_extra(zip_entry &info,
+                                                   error_info &error) {
 
   bool need_file_size = info.file_size == 0xFFFFFFFF;
   bool need_compress_size = info.compress_size == 0xFFFFFFFF;
@@ -311,7 +316,9 @@ PICOUNZIP_INLINE void search_zip64_size_from_extra(zip_entry &info) {
           need_header_offset = false;
         }
         if (size < 0) {
-          throw unzip_error("bad zip file");
+          error =
+              error_info(error_info::UNZIP_BAD_ZIP_FILE, "Bad ZIP64 format");
+          return;
         }
       }
       read_stream(ss, size);
@@ -320,7 +327,8 @@ PICOUNZIP_INLINE void search_zip64_size_from_extra(zip_entry &info) {
 }
 
 PICOUNZIP_INLINE std::vector<zip_entry>
-build_entry_list(std::istream &is, const unzip::end_of_central_dir &eocd) {
+build_entry_list(std::istream &is, const unzip::end_of_central_dir &eocd,
+                 error_info &error) {
 
   std::istream::pos_type central_dir_start = eocd.directory_offset;
 
@@ -331,7 +339,9 @@ build_entry_list(std::istream &is, const unzip::end_of_central_dir &eocd) {
   for (size_t entry = 0; entry < eocd.directory_records; ++entry) {
     uint32_t central_dir_signature = read_stream<uint32_t>(is);
     if (central_dir_signature != DIRECTORY_HEADER_SIGNATURE) {
-      throw unzip_error("bad zip file");
+      error =
+          error_info(error_info::UNZIP_BAD_ZIP_FILE, "Bad directory header");
+      return ret;
     }
 
     zip_entry info;
@@ -358,7 +368,10 @@ build_entry_list(std::istream &is, const unzip::end_of_central_dir &eocd) {
     info.extra = read_stream(is, ext_field_size);
     info.comment = read_stream(is, filecomment_size);
 
-    search_zip64_size_from_extra(info);
+    search_zip64_size_from_extra(info, error);
+    if (error) {
+      return ret;
+    }
 
     ret.push_back(info);
   }
@@ -368,12 +381,14 @@ build_entry_list(std::istream &is, const unzip::end_of_central_dir &eocd) {
 
 PICOUNZIP_INLINE bool read_local_file_header(std::istream &is,
                                              const zip_entry &info,
+                                             error_info &error,
                                              std::string *localextra = 0) {
   is.seekg(info.local_file_header_offset);
 
   uint32_t signature = detail::read_stream<uint32_t>(is);
   if (signature != 0x04034b50) {
-    throw unzip_error("bad zip file");
+    error = error_info(error_info::UNZIP_BAD_ZIP_FILE, "Bad local file header");
+    return false;
   }
   uint16_t extract_version = detail::read_stream<uint16_t>(is);
   if (info.extract_version != extract_version) {
@@ -421,6 +436,24 @@ PICOUNZIP_INLINE bool read_local_file_header(std::istream &is,
 
   return true;
 }
+
+PICOUNZIP_INLINE bool ncopy_stream(std::ostream &dest, std::istream &src,
+                                   std::streamsize copysize) {
+
+  const std::streamsize BUFFER_SIZE = 512;
+  std::streamsize remainsize = copysize;
+  char buffer[BUFFER_SIZE];
+  while (dest.good() && src.good() && remainsize > 0) {
+    std::streamsize readsize = BUFFER_SIZE;
+    if (remainsize < BUFFER_SIZE) {
+      readsize = remainsize;
+    }
+    src.read(buffer, readsize);
+    remainsize -= src.gcount();
+    dest.write(buffer, readsize);
+  }
+  return dest.good() && src.good();
+}
 }
 
 PICOUNZIP_INLINE unzip::unzip(std::istream &stream)
@@ -434,14 +467,10 @@ PICOUNZIP_INLINE unzip::unzip(const std::string &filepath)
   read_header();
 }
 
-PICOUNZIP_INLINE const std::vector<zip_entry> &unzip::entrylist() {
-
-  if (entry_list_.empty()) {
-    entry_list_ = detail::build_entry_list(stream_, header_);
-  }
+PICOUNZIP_INLINE const std::vector<zip_entry> &unzip::entrylist() const {
   return entry_list_;
 }
-PICOUNZIP_INLINE std::vector<std::string> unzip::namelist() {
+PICOUNZIP_INLINE std::vector<std::string> unzip::namelist() const {
   std::vector<std::string> ret;
   const std::vector<zip_entry> &zipentry = entrylist();
   for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
@@ -450,7 +479,8 @@ PICOUNZIP_INLINE std::vector<std::string> unzip::namelist() {
   }
   return ret;
 }
-PICOUNZIP_INLINE zip_entry unzip::getentry(const std::string &name) {
+
+PICOUNZIP_INLINE zip_entry unzip::getentry(const std::string &name) const {
 
   const std::vector<zip_entry> &zipentry = entrylist();
   for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
@@ -462,9 +492,14 @@ PICOUNZIP_INLINE zip_entry unzip::getentry(const std::string &name) {
   return zip_entry();
 }
 
-PICOUNZIP_INLINE bool unzip::extract(const zip_entry &info,
-                                     const std::string &path) {
+PICOUNZIP_INLINE void unzip::extract(const zip_entry &info,
+                                     const std::string &path,
+                                     error_info &error) {
 
+  if (info.invalid()) {
+    error = error_info(error_info::UNZIP_BAD_ZIP_FILE, "Bad zip entry");
+    return;
+  }
   std::string outpath = path;
   if (!outpath.empty() && outpath[outpath.size() - 1] != '/' &&
       outpath[outpath.size() - 1] != '\\') {
@@ -484,44 +519,69 @@ PICOUNZIP_INLINE bool unzip::extract(const zip_entry &info,
 
   if (info.is_dir()) {
     detail::make_directory(outpath);
-    return true;
+    return;
   }
 
   std::ofstream ofs(outpath.c_str(), std::ios::binary);
 
   if (!ofs.is_open()) {
-    throw unzip_error("can not open file:" + outpath);
+    error = error_info(error_info::UNZIP_CAN_NOT_WRITE_FILE,
+                       "Can not write file to " + outpath);
+    return;
   }
 
   unzip_file_stream ifs(*this, info);
 
-  std::copy(std::istreambuf_iterator<char>(ifs),
-            std::istreambuf_iterator<char>(),
-            std::ostreambuf_iterator<char>(ofs));
-
-  if (!ifs.error_message().empty()) {
-    throw unzip_error(ifs.error_message());
+  bool ret = detail::ncopy_stream(ofs, ifs, info.file_size);
+  if (!ret) {
+    if (ifs.error()) {
+      error = ifs.error();
+    } else {
+      error = error_info(error_info::UNZIP_UNKNOWN_ERROR, "unknown error");
+    }
   }
-  return true;
 }
-PICOUNZIP_INLINE bool unzip::extract(const std::string &filename,
+
+PICOUNZIP_INLINE void unzip::extract(const zip_entry &info,
                                      const std::string &path) {
-  return extract(getentry(filename), path);
+  error_info error;
+  extract(info, path, error);
+  if (error) {
+    throw unzip_error(error);
+  }
 }
-PICOUNZIP_INLINE bool unzip::extractall(const std::string &path) {
+
+PICOUNZIP_INLINE void unzip::extractall(const std::string &path,
+                                        error_info &error) {
   const std::vector<zip_entry> &zipentry = entrylist();
 
-  bool ret = true;
   for (std::vector<zip_entry>::const_iterator it = zipentry.begin();
        it != zipentry.end(); ++it) {
-    ret &= extract(*it, path);
+    extract(*it, path, error);
+    if (error) {
+      return;
+    }
   }
-  return ret;
 }
 
-PICOUNZIP_INLINE bool unzip::read_header() {
-  header_ = detail::read_directory_end(stream_);
-  return true;
+PICOUNZIP_INLINE void unzip::extractall(const std::string &path) {
+  error_info error;
+  extractall(path, error);
+  if (error) {
+    throw unzip_error(error);
+  }
+}
+
+PICOUNZIP_INLINE void unzip::read_header() {
+  error_info error;
+  header_ = detail::read_directory_end(stream_, error);
+  if (error) {
+    throw unzip_error(error);
+  }
+  entry_list_ = detail::build_entry_list(stream_, header_, error);
+  if (error) {
+    throw unzip_error(error);
+  }
 }
 PICOUNZIP_INLINE unzip_file_stream::unzip_file_stream(unzip &unzip,
                                                       const zip_entry &entry)
@@ -531,11 +591,12 @@ unzip_file_stream::unzip_file_stream(unzip &unzip, const std::string &filename)
     : std::istream(&steam_buf_),
       steam_buf_(unzip.stream(), unzip.getentry(filename)) {}
 
-PICOUNZIP_INLINE unzip_file_stream::unzip_file_streambuf::unzip_file_streambuf(
+PICOUNZIP_INLINE
+unzip_file_stream::unzip_file_streambuf::unzip_file_streambuf(
     std::istream &is, const zip_entry &entry)
     : decompresser_(0), source_(is), zipentry_(entry) {
   source_.clear();
-  detail::read_local_file_header(is, entry);
+  detail::read_local_file_header(is, entry, error_);
 
   remain_read_size_ = zipentry_.file_size;
   current_pos_ = source_.tellg();
@@ -551,8 +612,8 @@ unzip_file_stream::unzip_file_streambuf::~unzip_file_streambuf() {
 
 PICOUNZIP_INLINE void
 unzip_file_stream::unzip_file_streambuf::raise_error(const std::string &what) {
-  error_message_ = what;
-  throw unzip_error(error_message_);
+  error_ = error_info(error_info::UNZIP_BAD_ZIP_FILE, what);
+  throw unzip_error(error_);
 }
 
 PICOUNZIP_INLINE unzip_file_stream::unzip_file_streambuf::int_type
@@ -564,10 +625,12 @@ unzip_file_stream::unzip_file_streambuf::underflow(void) {
       decompresser_ = new noop_reader(source_);
     } else {
       raise_error("not supported compress_type");
+      return traits_type::eof();
     }
   }
-  if (!error_message_.empty()) {
-    throw unzip_error(error_message_);
+  if (error_) {
+    throw unzip_error(error_);
+    return traits_type::eof();
   }
   if (egptr() <= gptr()) {
     source_.clear();
@@ -588,11 +651,13 @@ unzip_file_stream::unzip_file_streambuf::underflow(void) {
     if (remain_read_size_ == 0) {
       if (crc_ != zipentry_.CRC) {
         raise_error("crc mismatch");
+        return traits_type::eof();
       }
     }
 
     if (ret.error) {
       raise_error(ret.error);
+      return traits_type::eof();
     } else {
       setg(dbuffer_, dbuffer_, dbuffer_ + ret.size);
     }

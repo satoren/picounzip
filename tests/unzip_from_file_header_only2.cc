@@ -2,11 +2,10 @@
 #include <fstream>
 #include <gtest/gtest.h>
 
+#define PICOUNZIP_HEADER_ONLY 1
 #include "picounzip.hpp"
 
 #include "zlib.h"
-
-#if PICOUNZIP_USE_CPP11
 
 class picounzipTest2 : public ::testing::Test {
 protected:
@@ -29,46 +28,3 @@ TEST_F(picounzipTest2, FileEntry) {
   EXPECT_EQ(190UL, makefile.compress_size);
   EXPECT_EQ(ZIP_DEFLATED, makefile.compress_type);
 }
-
-TEST_F(picounzipTest2, ExtractFromMovedStream) {
-  using namespace picounzip;
-  {
-    unzip dont_add_dirent(
-        std::ifstream("resource/extract/def.zip", std::ios::binary));
-    EXPECT_EQ(true, dont_add_dirent.extractall("output/def"));
-  }
-  {
-    unzip defaultopt(
-        std::ifstream("resource/extract/default.zip", std::ios::binary));
-    EXPECT_EQ(true, defaultopt.extractall("output/default"));
-  }
-  {
-    unzip storeonly(
-        std::ifstream("resource/extract/storeonly.zip", std::ios::binary));
-    EXPECT_EQ(true, storeonly.extractall("output/storeonly"));
-  }
-  {
-    unzip addcomment(
-        std::ifstream("resource/extract/addcomment.zip", std::ios::binary));
-    EXPECT_EQ(true, addcomment.extractall("output/addcomment"));
-    EXPECT_EQ("zip comment", addcomment.comment());
-  }
-  {
-    unzip bettercompress(
-        std::ifstream("resource/extract/bettercompress.zip", std::ios::binary));
-    EXPECT_EQ(true, bettercompress.extractall("output/bettercompress"));
-  }
-  {
-    unzip dont_add_dirent(std::ifstream("resource/extract/dont_add_dirent.zip",
-                                        std::ios::binary));
-    EXPECT_EQ(true, dont_add_dirent.extractall("output/dont_add_dirent"));
-  }
-  {
-    unzip create_by_macos_finder("resource/extract/create_by_macos_finder.zip");
-    EXPECT_EQ(
-        true,
-        create_by_macos_finder.extractall("output/create_by_macos_finder"));
-  }
-}
-
-#endif // PICOUNZIP_USE_CPP11

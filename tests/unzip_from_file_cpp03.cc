@@ -33,53 +33,99 @@ TEST_F(picounzipTest, Extract) {
   using namespace picounzip;
   {
     std::ifstream ifs("resource/extract/def.zip", std::ios::binary);
-    EXPECT_EQ(true, ifs.is_open());
+    EXPECT_TRUE(ifs.is_open());
   }
   {
     unzip dont_add_dirent("resource/extract/def.zip");
-    EXPECT_EQ(true, dont_add_dirent.extractall("output/def"));
-    EXPECT_EQ(true, dont_add_dirent.extractall("output/def"));
-    EXPECT_EQ(true, dont_add_dirent.extractall());
+    dont_add_dirent.extractall("output/def");
+    dont_add_dirent.extractall("output/def");
+    dont_add_dirent.extractall();
+
+	//check extract file
+	std::ifstream fdef("output/def/def.txt", std::ios::binary);
+	std::string s;
+	fdef >> s;
+	EXPECT_EQ("aaaaaa", s);
   }
   {
     unzip defaultopt("resource/extract/default.zip");
-    EXPECT_EQ(true, defaultopt.extractall("output/default"));
+    defaultopt.extractall("output/default");
   }
   {
     unzip storeonly("resource/extract/storeonly.zip");
-    EXPECT_EQ(true, storeonly.extractall("output/storeonly"));
+    storeonly.extractall("output/storeonly");
   }
   {
     unzip addcomment("resource/extract/addcomment.zip");
-    EXPECT_EQ(true, addcomment.extractall("output/addcomment"));
+    addcomment.extractall("output/addcomment");
     EXPECT_EQ("zip comment", addcomment.comment());
   }
   {
     unzip bettercompress("resource/extract/bettercompress.zip");
-    EXPECT_EQ(true, bettercompress.extractall("output/bettercompress"));
+    bettercompress.extractall("output/bettercompress");
   }
   {
     unzip dont_add_dirent("resource/extract/dont_add_dirent.zip");
-    EXPECT_EQ(true, dont_add_dirent.extractall("output/dont_add_dirent"));
+    dont_add_dirent.extractall("output/dont_add_dirent");
   }
   {
     unzip create_by_macos_finder("resource/extract/create_by_macos_finder.zip");
-    EXPECT_EQ(
-        true,
-        create_by_macos_finder.extractall("output/create_by_macos_finder"));
+    create_by_macos_finder.extractall("output/create_by_macos_finder");
   }
+}
+
+
+TEST_F(picounzipTest, ExtractDataCheck) {
+	using namespace picounzip;
+	{
+		unzip zip("resource/extract/random.zip");
+		zip.extractall("output/random");
+
+		std::ifstream original("resource/extract/random.dat", std::ios::binary);
+		std::ifstream extracted("output/random/random.dat", std::ios::binary);
+
+		bool file_equal = std::equal(std::istreambuf_iterator<char>(extracted),
+			std::istreambuf_iterator<char>(), std::istreambuf_iterator<char>(original));
+		EXPECT_TRUE(file_equal);
+	}
+
+	{
+		std::ifstream original("resource/extract/random.dat", std::ios::binary);
+		unzip zip("resource/extract/random.zip");
+
+		unzip_file_stream unzifs(zip, zip.entrylist().front());
+
+		bool data_equal = std::equal(std::istreambuf_iterator<char>(unzifs),
+			std::istreambuf_iterator<char>(), std::istreambuf_iterator<char>(original));
+		EXPECT_TRUE(data_equal);
+	}
 }
 TEST_F(picounzipTest, ExtractError) {
 
   using namespace picounzip;
   { EXPECT_THROW(unzip("resource/extract/random.dat"), unzip_error); }
   { EXPECT_THROW(unzip("resource/extract/def.txt"), unzip_error); }
+  { EXPECT_THROW(unzip("resource/extract/def.txt"), unzip_error); }
   {
     unzip crc_error("resource/extract/crc_error.zip");
     EXPECT_THROW(crc_error.extractall("output/crc_error/"), unzip_error);
   }
   {
-    //		unzip dont_add_dirent("resource/extract/def.zip");
-    //		EXPECT_EQ(false, dont_add_dirent.extract("notfound"));
+    unzip crc_error("resource/extract/crc_error.zip");
+    error_info error;
+    crc_error.extractall("output/crc_error/", error);
+    EXPECT_TRUE(error);
+    EXPECT_EQ(error.error_code, error.UNZIP_BAD_ZIP_FILE);
+  }
+  {
+    unzip dont_add_dirent("resource/extract/def.zip");
+    EXPECT_THROW(dont_add_dirent.extract("notfound"), unzip_error);
+  }
+  {
+    unzip dont_add_dirent("resource/extract/def.zip");
+    error_info error;
+    EXPECT_FALSE(error);
+    dont_add_dirent.extract("notfound", error);
+    EXPECT_TRUE(error);
   }
 }

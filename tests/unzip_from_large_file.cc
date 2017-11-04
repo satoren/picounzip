@@ -21,12 +21,14 @@ TEST_F(PicounzipLargeFileTest, LargeFile) {
   }
   {
     unzip zip("resource/large_data/zero_largedata.zip");
-    EXPECT_EQ(uint64_t(1024) * 1024 * 1024 * 6, uint64_t(
-              zip.entrylist().front().file_size));
+    EXPECT_EQ(uint64_t(1024) * 1024 * 1024 * 6,
+              uint64_t(zip.entrylist().front().file_size));
 
-	unzip_file_stream unzifs(zip, zip.entrylist().front());
+    unzip_file_stream unzifs(zip, zip.entrylist().front());
 
-	uint64_t streamdistance = std::distance(std::istreambuf_iterator<char>(unzifs), std::istreambuf_iterator<char>());
-	EXPECT_EQ(uint64_t(1024) * 1024 * 1024 * 6, streamdistance);
+    uint64_t streamdistance =
+        std::distance(std::istreambuf_iterator<char>(unzifs),
+                      std::istreambuf_iterator<char>());
+    EXPECT_EQ(uint64_t(1024) * 1024 * 1024 * 6, streamdistance);
   }
 }

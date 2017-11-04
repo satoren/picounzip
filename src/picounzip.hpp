@@ -58,9 +58,47 @@ enum compress_type {
   ZIP_DEFLATED = 8,
 };
 
+struct error_info {
+private:
+	typedef void (error_info::*bool_type)() const;
+	void this_type_does_not_support_comparisons() const {}
+public:
+  enum error_code_type {
+    UNZIP_OK,
+    UNZIP_ENTRY_NOT_FOUND,
+    UNZIP_BAD_ZIP_FILE,
+    UNZIP_CAN_NOT_WRITE_FILE,
+    UNZIP_UNKNOWN_ERROR,
+  };
+  error_code_type error_code;
+  std::string message;
+
+  error_info() : error_code(UNZIP_OK), message() {}
+  error_info(error_code_type err_code, const std::string &msg)
+      : error_code(err_code), message(msg) {}
+  error_info(const error_info &rhs)
+      : error_code(rhs.error_code), message(rhs.message) {}
+
+  operator bool_type() const // true if error
+  {
+    return error_code != UNZIP_OK? &error_info::this_type_does_not_support_comparisons:0;
+  }
+  bool operator!() const // true if error
+  {
+    return error_code == UNZIP_OK;
+  }
+  bool operator==(const error_info &rhs) const {
+    return error_code == rhs.error_code && message == rhs.message;
+  }
+};
+
 struct unzip_error : std::runtime_error {
   explicit unzip_error(const std::string &what_arg)
       : std::runtime_error(what_arg) {}
+  explicit unzip_error(const error_info &error)
+      : std::runtime_error(error.message), error(error) {}
+
+  error_info error;
 };
 struct zip_entry {
   zip_entry()
@@ -123,14 +161,94 @@ public:
     stream_holder_ = 0;
   }
 
-  const std::vector<zip_entry> &entrylist();
-  std::vector<std::string> namelist();
-  zip_entry getentry(const std::string &name);
+  //! A returning an zip entries.
+  const std::vector<zip_entry> &entrylist() const;
 
-  bool extract(const zip_entry &info, const std::string &path = "");
-  bool extract(const std::string &filename, const std::string &path = "");
-  bool extractall(const std::string &path = "");
+  //! A returning an filename list for zip entries.
+  std::vector<std::string> namelist() const;
 
+  //! A returning an zip entry by name.
+  /*!
+  \return zip entry. if not found zip_entry::invalid() returning true
+  */
+  zip_entry getentry(const std::string &name) const;
+
+  //! Extract a member from the zip archive to the current working directory.
+  /*!
+    \param entry zip_entry or string of filename.
+        \see entrylist(),getentry()
+    \param path specifies a different directory to extract to.
+    \exception picounzip::unzip_error
+  */
+  void extract(const zip_entry &entry, const std::string &path);
+
+  /// \overload void extract(const zip_entry &ent, const std::string &path)
+  void extract(const zip_entry &ent) { extract(ent, "./"); }
+
+  /// \overload void extract(const zip_entry &ent, const std::string &path)
+  void extract(const std::string &filename, const std::string &path) {
+    extract(getentry(filename), path);
+  }
+
+  /// \overload void extract(const zip_entry &ent, const std::string &path)
+  void extract(const std::string &filename) { extract(filename, "./"); }
+
+  //! Extract a member from the zip archive to the current working directory.
+  /*!
+    \param entry zip_entry or string of filename.
+        \see entrylist(),getentry()
+    \param path specifies a different directory to extract to.
+    \param [out] Set to indicate what error occurred, if any.
+  */
+  void extract(const zip_entry &ent, const std::string &path,
+               error_info &error);
+
+  /// \overload void extract(const zip_entry &ent, const std::string
+  /// &path,error_info &error)
+  void extract(const zip_entry &ent, error_info &error) {
+    extract(ent, "./", error);
+  }
+  /// \overload void extract(const zip_entry &ent, const std::string
+  /// &path,error_info &error)
+  void extract(const std::string &filename, const std::string &path,
+               error_info &error) {
+    extract(getentry(filename), path, error);
+  }
+  /// \overload void extract(const zip_entry &ent, const std::string
+  /// &path,error_info &error)
+  void extract(const std::string &filename, error_info &error) {
+    extract(filename, "./", error);
+  }
+
+  //! Extract a all member from the zip archive to the current working
+  //! directory.
+  /*!
+  \param path specifies a different directory to extract to.
+  */
+  void extractall(const std::string &path);
+  /// \overload void extractall(const std::string &path)
+  void extractall() { extractall("./"); }
+
+  //! Extract a all member from the zip archive to the current working
+  //! directory.
+  /*!
+  \param path specifies a different directory to extract to.
+  \param [out] Set to indicate what error occurred, if any.
+  */
+  void extractall(const std::string &path, error_info &error);
+  /// \overload void extractall(const std::string &path, error_info &error)
+  void extractall(error_info &error) { extractall("./", error); }
+
+  //! A returning an comment of  zip archive.
+  /*!
+    \return The comment of archive
+  */
+  std::string comment() { return header_.comment; }
+
+  //! A returning an stream for using.
+  std::istream &stream() { return stream_; };
+
+  /// internal use
   struct end_of_central_dir {
     uint32_t disk_no;
     uint32_t dir_disk_no;
@@ -141,18 +259,13 @@ public:
     std::string comment;
   };
 
-  std::string comment() { return header_.comment; }
-
-  std::istream &stream() { return stream_; };
-
 private:
   unzip(const unzip &);
   stream_holder_base *stream_holder_;
   std::istream &stream_;
   end_of_central_dir header_;
 
-  // for entry cache
-  bool read_header();
+  void read_header();
   std::vector<zip_entry> entry_list_;
 };
 
@@ -175,9 +288,7 @@ public:
   unzip_file_stream(unzip &unzip, const zip_entry &entry);
   unzip_file_stream(unzip &unzip, const std::string &filename);
 
-  const std::string &error_message() const {
-    return steam_buf_.error_message_;
-  };
+  const error_info &error() const { return steam_buf_.error_; };
 
 private:
   class unzip_file_streambuf : public std::streambuf {
@@ -199,7 +310,7 @@ private:
 
     zip_entry zipentry_;
 
-    std::string error_message_;
+    error_info error_;
 
     static const size_t BUFFER_SIZE = 4096;
     char dbuffer_[BUFFER_SIZE];
