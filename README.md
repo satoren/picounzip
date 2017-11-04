@@ -3,6 +3,7 @@ extract ZIP archive library for c++
 [![Build Status](https://travis-ci.org/satoren/picounzip.svg?branch=master)](https://travis-ci.org/satoren/picounzip)
 [![Build status](https://ci.appveyor.com/api/projects/status/qqwfqbltcky42um6/branch/master?svg=true)](https://ci.appveyor.com/project/satoren/picounzip/branch/master)
 
+[![Coverage Status](https://coveralls.io/repos/github/satoren/picounzip/badge.svg)](https://coveralls.io/github/satoren/picounzip)
 
 Licensed under [Boost Software License](http://www.boost.org/LICENSE_1_0.txt)
 
