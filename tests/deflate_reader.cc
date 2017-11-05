@@ -3,7 +3,7 @@
 #include <fstream>
 #include <gtest/gtest.h>
 
-#include "picounzip.cc"
+#include "picounzip.hpp"
 
 class deflate_readerTest : public ::testing::Test {
 protected:

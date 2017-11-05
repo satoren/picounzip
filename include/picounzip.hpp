@@ -178,40 +178,37 @@ public:
   */
   void extract(const zip_entry &entry, const std::string &path);
 
-  /// \overload void extract(const zip_entry &ent, const std::string &path)
-  void extract(const zip_entry &ent) { extract(ent, "./"); }
+  /// \overload void extract(const zip_entry &entry, const std::string &path)
+  void extract(const zip_entry &entry) { extract(ent, "./"); }
 
-  /// \overload void extract(const zip_entry &ent, const std::string &path)
+  /// \overload void extract(const zip_entry &entry, const std::string &path)
   void extract(const std::string &filename, const std::string &path) {
     extract(getentry(filename), path);
   }
 
-  /// \overload void extract(const zip_entry &ent, const std::string &path)
+  /// \overload void extract(const zip_entry &entry, const std::string &path)
   void extract(const std::string &filename) { extract(filename, "./"); }
 
   //! Extract a member from the zip archive to the current working directory.
   /*!
     \param entry zip_entry or string of filename.
-        \see entrylist(),getentry()
+    \see entrylist(),getentry()
     \param path specifies a different directory to extract to.
-    \param [out] Set to indicate what error occurred, if any.
+    \param [out] error Set to indicate what error occurred, if any.
   */
-  void extract(const zip_entry &ent, const std::string &path,
+  void extract(const zip_entry &entry, const std::string &path,
                error_info &error);
 
-  /// \overload void extract(const zip_entry &ent, const std::string
-  /// &path,error_info &error)
+  /// \overload
   void extract(const zip_entry &ent, error_info &error) {
     extract(ent, "./", error);
   }
-  /// \overload void extract(const zip_entry &ent, const std::string
-  /// &path,error_info &error)
+  /// \overload
   void extract(const std::string &filename, const std::string &path,
                error_info &error) {
     extract(getentry(filename), path, error);
   }
-  /// \overload void extract(const zip_entry &ent, const std::string
-  /// &path,error_info &error)
+  /// \overload
   void extract(const std::string &filename, error_info &error) {
     extract(filename, "./", error);
   }
@@ -229,7 +226,7 @@ public:
   //! directory.
   /*!
   \param path specifies a different directory to extract to.
-  \param [out] Set to indicate what error occurred, if any.
+  \param [out] error Set to indicate what error occurred, if any.
   */
   void extractall(const std::string &path, error_info &error);
   /// \overload void extractall(const std::string &path, error_info &error)
@@ -281,7 +278,9 @@ struct reader {
 }
 class unzip_file_stream : public std::istream {
 public:
+  /// construct with zip_entry
   unzip_file_stream(unzip &unzip, const zip_entry &entry);
+  /// construct with filename
   unzip_file_stream(unzip &unzip, const std::string &filename);
 
   const error_info &error() const { return steam_buf_.error_; };
