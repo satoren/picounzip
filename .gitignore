@@ -6,3 +6,4 @@ tests/output
 tests/resource/large_data/large_entry.zip
 tests/resource/large_data/zero_largedata.zip
 doc
+_build/
