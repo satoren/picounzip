@@ -1,5 +1,6 @@
 # picounzip
 extract ZIP archive library for c++
+
 [![Build Status](https://travis-ci.org/satoren/picounzip.svg?branch=master)](https://travis-ci.org/satoren/picounzip)
 [![Build status](https://ci.appveyor.com/api/projects/status/qqwfqbltcky42um6/branch/master?svg=true)](https://ci.appveyor.com/project/satoren/picounzip/branch/master)
 
@@ -8,24 +9,22 @@ extract ZIP archive library for c++
 Licensed under [Boost Software License](http://www.boost.org/LICENSE_1_0.txt)
 
 ## Requirements
-- zlib
+- [zlib](https://www.zlib.net/)
 - C++03 compiler (some limitation) + (stdint.h header) or later.
 
 ## Introduction
 Extract zip archive for C++
+- single header-file only
+- ZIP64 supported
 
 ## Usage
-* add zlib to link library.
-* add "src" directory to "header search path" of your project.
-
-* compile and link for picounzip.cc or header only define `PICOUNZIP_HEADER_ONLY` to 1
+* add "include" directory to "header search path" of your project.
 
 ### small example
 
 * code
 ```c++
 #include <stdio.h>
-#define PICOUNZIP_HEADER_ONLY 1
 #include "picounzip.hpp"
 int main(int argc,char* argv[]){
   using namespace picounzip;

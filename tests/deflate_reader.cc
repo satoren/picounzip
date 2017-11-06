@@ -3,7 +3,7 @@
 #include <fstream>
 #include <gtest/gtest.h>
 
-#include "picounzip.cc"
+#include "picounzip.hpp"
 
 class deflate_readerTest : public ::testing::Test {
 protected:
@@ -18,10 +18,10 @@ TEST_F(deflate_readerTest, read_defrate_stream) {
   {
     std::ifstream ifs("resource/deflate/text.txt.z", std::ios::binary);
 
-    deflate_reader reader(ifs);
+    detail::deflate_reader reader(ifs);
 
     char buffer[512] = {};
-    deflate_reader::read_result ret = reader.read(buffer, 512);
+    detail::deflate_reader::read_result ret = reader.read(buffer, 512);
 
     EXPECT_STREQ(0, ret.error);
     EXPECT_EQ(size_t(52), ret.size);
@@ -31,12 +31,12 @@ TEST_F(deflate_readerTest, read_defrate_stream) {
   {
     std::ifstream ifs("resource/deflate/text.txt.z", std::ios::binary);
 
-    deflate_reader reader(ifs);
+    detail::deflate_reader reader(ifs);
 
     char buffer[512] = {};
     int readpos = 0;
     {
-      deflate_reader::read_result ret;
+      detail::deflate_reader::read_result ret;
       ret = reader.read(buffer, 30);
       readpos += ret.size;
       while (ret.size != 0 && !ret.error) {
@@ -52,12 +52,12 @@ TEST_F(deflate_readerTest, read_defrate_stream) {
   {
     std::ifstream ifs("resource/deflate/text.txt.z", std::ios::binary);
 
-    deflate_reader reader(ifs);
+    detail::deflate_reader reader(ifs);
 
     char buffer[512] = {};
     int readpos = 0;
     {
-      deflate_reader::read_result ret;
+      detail::deflate_reader::read_result ret;
       ret = reader.read(buffer, 1);
       readpos += ret.size;
       while (ret.size != 0 && !ret.error) {

@@ -1,3 +1,4 @@
+#pragma once
 /*
 Boost Software License - Version 1.0 - August 17th, 2003
 
@@ -24,8 +25,326 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#include "picounzip.hpp"
+#include <istream>
+#include <map>
+#include <string>
+#include <vector>
 
+#include <stdexcept>
+#include <stdint.h>
+
+#ifndef PICOUNZIP_USE_CPP11
+#if defined(__cpp_decltype) || __cplusplus >= 201103L ||                       \
+    (defined(_MSC_VER) && _MSC_VER >= 1800)
+#define PICOUNZIP_USE_CPP11 1
+#else
+#define PICOUNZIP_USE_CPP11 0
+#endif
+#endif
+
+namespace picounzip {
+namespace detail {
+class reader;
+}
+
+enum compress_type {
+  ZIP_STORED = 0,
+  ZIP_DEFLATED = 8,
+};
+
+struct error_info {
+private:
+  typedef void (error_info::*bool_type)() const;
+  void this_type_does_not_support_comparisons() const {}
+
+public:
+  enum error_code_type {
+    UNZIP_OK,
+    UNZIP_ENTRY_NOT_FOUND,
+    UNZIP_BAD_ZIP_FILE,
+    UNZIP_CAN_NOT_WRITE_FILE,
+    UNZIP_UNKNOWN_ERROR,
+  };
+  error_code_type error_code;
+  std::string message;
+
+  error_info() : error_code(UNZIP_OK), message() {}
+  error_info(error_code_type err_code, const std::string &msg)
+      : error_code(err_code), message(msg) {}
+  error_info(const error_info &rhs)
+      : error_code(rhs.error_code), message(rhs.message) {}
+
+  operator bool_type() const // true if error
+  {
+    return error_code != UNZIP_OK
+               ? &error_info::this_type_does_not_support_comparisons
+               : 0;
+  }
+  bool operator!() const // true if error
+  {
+    return error_code == UNZIP_OK;
+  }
+  bool operator==(const error_info &rhs) const {
+    return error_code == rhs.error_code && message == rhs.message;
+  }
+};
+
+/// exception for unzip error
+struct unzip_error : std::runtime_error {
+  explicit unzip_error(const std::string &what_arg)
+      : std::runtime_error(what_arg) {}
+  explicit unzip_error(const error_info &error)
+      : std::runtime_error(error.message), error(error) {}
+
+  error_info error;
+};
+
+/// zip entry for ZIP archive
+/*!
+ \see unzip::entrylist(),unzip::getentry()
+*/
+struct zip_entry {
+  zip_entry()
+      : flag_bits(0), create_version(0), extract_version(0),
+        compress_type(ZIP_STORED), date_time(0), CRC(0), compress_size(0),
+        file_size(0), internal_attr(0), external_attr(0),
+        local_file_header_offset(0) {}
+
+  uint32_t flag_bits; /// ZIP flag bits
+  uint16_t create_version;
+  uint16_t extract_version;
+  uint16_t compress_type;
+  time_t date_time;
+  uint32_t CRC;           /// CRC-32 of uncompressed file.
+  uint64_t compress_size; /// size of compressed data.
+  uint64_t file_size;     /// size of uncompressed data.
+  uint32_t internal_attr;
+  uint32_t external_attr;
+  int64_t local_file_header_offset; /// byte offset to local file header
+
+  std::string filename; /// Name of the file in the archive.
+  std::string extra;    /// Expansion field data.
+  std::string comment;  /// Comment for the individual archive member.
+
+  /// this archive member is a directory.
+  bool is_dir() const {
+    return !filename.empty() && filename[filename.size() - 1] == '/';
+  }
+  /// this archive member is a invalid.
+  /*!
+   e.g. archive member is not found by unzip::getentry()
+   \see unzip::getentry()
+  */
+  bool invalid() const { return filename.empty(); }
+};
+
+/// extract zip archive
+class unzip {
+public:
+  /// construct with input stream
+  /*!
+    \param stream required feature is read/seekg(include end position)
+  */
+  explicit unzip(std::istream &stream);
+
+#if PICOUNZIP_USE_CPP11
+  /// construct with input stream
+  /*!
+    \param stream required feature is read/seekg(include end position).
+  */
+  template <typename stream_type,
+            typename = typename std::enable_if<
+                std::is_base_of<std::istream, stream_type>::value>::type>
+  explicit unzip(stream_type &&stream)
+      : stream_holder_(new stream_holder<stream_type>(std::move(stream))),
+        stream_(stream_holder_->stream()) {
+    read_header();
+  }
+#endif
+
+  /// construct with filepath
+  /*!
+    \param filepath path to zip file
+  */
+  explicit unzip(const std::string &filepath);
+
+  ~unzip() {
+    delete stream_holder_;
+    stream_holder_ = 0;
+  }
+
+  //! A returning an zip entries.
+  const std::vector<zip_entry> &entrylist() const;
+
+  //! A returning an filename list for zip entries.
+  std::vector<std::string> namelist() const;
+
+  //! A returning an zip entry by name.
+  /*!
+  \return zip entry. if not found zip_entry::invalid() returning true
+  */
+  zip_entry getentry(const std::string &name) const;
+
+  //! Extract a member from the zip archive to the current working directory.
+  /*!
+    \param entry zip_entry or string of filename.
+        \see entrylist(),getentry()
+    \param path specifies a different directory to extract to.
+    \exception picounzip::unzip_error
+  */
+  void extract(const zip_entry &entry, const std::string &path);
+
+  /// \overload void extract(const zip_entry &entry, const std::string &path)
+  void extract(const zip_entry &entry) { extract(entry, "./"); }
+
+  /// \overload void extract(const zip_entry &entry, const std::string &path)
+  void extract(const std::string &filename, const std::string &path) {
+    extract(getentry(filename), path);
+  }
+
+  /// \overload void extract(const zip_entry &entry, const std::string &path)
+  void extract(const std::string &filename) { extract(filename, "./"); }
+
+  //! Extract a member from the zip archive to the current working directory.
+  /*!
+    \param entry zip_entry or string of filename.
+    \see entrylist(),getentry()
+    \param path specifies a different directory to extract to.
+    \param [out] error Set to indicate what error occurred, if any.
+  */
+  void extract(const zip_entry &entry, const std::string &path,
+               error_info &error);
+
+  /// \overload
+  void extract(const zip_entry &entry, error_info &error) {
+    extract(entry, "./", error);
+  }
+  /// \overload
+  void extract(const std::string &filename, const std::string &path,
+               error_info &error) {
+    extract(getentry(filename), path, error);
+  }
+  /// \overload
+  void extract(const std::string &filename, error_info &error) {
+    extract(filename, "./", error);
+  }
+
+  //! Extract a all member from the zip archive to the current working
+  //! directory.
+  /*!
+  \param path specifies a different directory to extract to.
+  */
+  void extractall(const std::string &path);
+  /// \overload void extractall(const std::string &path)
+  void extractall() { extractall("./"); }
+
+  //! Extract a all member from the zip archive to the current working
+  //! directory.
+  /*!
+  \param path specifies a different directory to extract to.
+  \param [out] error Set to indicate what error occurred, if any.
+  */
+  void extractall(const std::string &path, error_info &error);
+  /// \overload void extractall(const std::string &path, error_info &error)
+  void extractall(error_info &error) { extractall("./", error); }
+
+  //! A returning an comment of  zip archive.
+  /*!
+    \return The comment of archive
+  */
+  std::string comment() { return header_.comment; }
+
+  //! A returning an stream for using.
+  std::istream &stream() { return stream_; };
+
+  /// internal use
+  struct end_of_central_dir {
+    uint32_t disk_no;
+    uint32_t dir_disk_no;
+    uint64_t dir_record_this_disk;
+    uint64_t directory_records;
+    uint64_t directory_size;
+    uint64_t directory_offset;
+    std::string comment;
+  };
+
+private:
+  struct stream_holder_base {
+    virtual std::istream &stream() = 0;
+    virtual ~stream_holder_base() {}
+  };
+#if PICOUNZIP_USE_CPP11
+  /// internal use
+  template <typename stream_type> struct stream_holder : stream_holder_base {
+    stream_holder(stream_type &&stream) : stream_(std::move(stream)) {}
+    virtual std::istream &stream() { return stream_; }
+    stream_type stream_;
+  };
+#endif
+
+  struct ifstream_holder : stream_holder_base {
+    ifstream_holder(const std::string &filepath) {
+      ifs.open(filepath.c_str(), std::ifstream::binary);
+    }
+
+    virtual std::istream &stream() { return ifs; }
+    std::ifstream ifs;
+  };
+  unzip(const unzip &);
+  stream_holder_base *stream_holder_;
+  std::istream &stream_;
+  end_of_central_dir header_;
+
+  void read_header();
+  std::vector<zip_entry> entry_list_;
+};
+
+/// stream of local file in zip archive
+/*!
+ seek is not supported
+*/
+class unzip_file_stream : public std::istream {
+public:
+  /// construct with zip_entry
+  unzip_file_stream(unzip &unzip, const zip_entry &entry);
+  /// construct with filename
+  unzip_file_stream(unzip &unzip, const std::string &filename);
+
+  const error_info &error() const { return steam_buf_.error_; };
+
+private:
+  class unzip_file_streambuf : public std::streambuf {
+  public:
+    unzip_file_streambuf(std::istream &is, const zip_entry &entry);
+    virtual ~unzip_file_streambuf();
+
+    virtual int_type underflow(void);
+
+    void raise_error(const std::string &what);
+
+    detail::reader *decompresser_;
+    std::istream &source_;
+
+    std::streampos current_pos_;
+    std::streamsize remain_read_size_;
+
+    uint32_t crc_;
+
+    zip_entry zipentry_;
+
+    error_info error_;
+
+    static const size_t BUFFER_SIZE = 4096;
+    char dbuffer_[BUFFER_SIZE];
+  };
+
+  unzip_file_streambuf steam_buf_;
+};
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// implement
+//////////////////////////////////////////////////////////////////////////////////////
 #include <cassert>
 #include <cstring>
 #include <fstream>
@@ -42,11 +361,7 @@ DEALINGS IN THE SOFTWARE.
 #include <sys/stat.h> //for mkdir on posix
 #endif
 
-#if PICOUNZIP_HEADER_ONLY
 #define PICOUNZIP_INLINE inline
-#else
-#define PICOUNZIP_INLINE
-#endif
 namespace picounzip {
 
 static const int ZIP_64_EXTRA_ID = 0x0001;
@@ -57,6 +372,19 @@ static const int DIRECTORY_64_LOC_SIGNATURE = 0x07064b50;
 static const int DIRECTORY_64_END_SIGNATURE = 0x06064b50;
 static const int DATA_DESCRIPTOR_SIGNATURE = 0x08074b50;
 
+namespace detail {
+
+struct reader {
+  virtual ~reader(void) {}
+  struct read_result {
+    read_result() : size(0), error(0) {}
+    read_result(size_t s, const char *e) : size(s), error(e) {}
+    read_result(const read_result &src) : size(src.size), error(src.error) {}
+    size_t size;
+    const char *error;
+  };
+  virtual read_result read(char *dest, size_t dest_size) = 0;
+};
 class noop_reader : public detail::reader {
 public:
   noop_reader(std::istream &stream) : source_stream_(stream) {}
@@ -112,17 +440,6 @@ private:
   deflate_reader(const deflate_reader &);
   char sbuffer_[SOURCE_BUFFER_SIZE];
   z_stream zs_;
-};
-
-namespace detail {
-
-struct ifstream_holder : stream_holder_base {
-  ifstream_holder(const std::string &filepath) {
-    ifs.open(filepath.c_str(), std::ifstream::binary);
-  }
-
-  virtual std::istream &stream() { return ifs; }
-  std::ifstream ifs;
 };
 
 #ifdef _WIN32
@@ -462,7 +779,7 @@ PICOUNZIP_INLINE unzip::unzip(std::istream &stream)
 }
 
 PICOUNZIP_INLINE unzip::unzip(const std::string &filepath)
-    : stream_holder_(new detail::ifstream_holder(filepath)),
+    : stream_holder_(new ifstream_holder(filepath)),
       stream_(stream_holder_->stream()) {
   read_header();
 }
@@ -620,9 +937,9 @@ PICOUNZIP_INLINE unzip_file_stream::unzip_file_streambuf::int_type
 unzip_file_stream::unzip_file_streambuf::underflow(void) {
   if (!decompresser_) {
     if (zipentry_.compress_type == ZIP_DEFLATED) {
-      decompresser_ = new deflate_reader(source_);
+      decompresser_ = new detail::deflate_reader(source_);
     } else if (zipentry_.compress_type == ZIP_STORED) {
-      decompresser_ = new noop_reader(source_);
+      decompresser_ = new detail::noop_reader(source_);
     } else {
       raise_error("not supported compress_type");
       return traits_type::eof();
@@ -641,7 +958,7 @@ unzip_file_stream::unzip_file_streambuf::underflow(void) {
       readsize = size_t(remain_read_size_);
     }
 
-    deflate_reader::read_result ret = decompresser_->read(dbuffer_, readsize);
+    detail::reader::read_result ret = decompresser_->read(dbuffer_, readsize);
 
     remain_read_size_ -= ret.size;
     crc_ = crc32(crc_, reinterpret_cast<unsigned char *>(dbuffer_),

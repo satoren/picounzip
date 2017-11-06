@@ -21,7 +21,7 @@ find_package(ZLIB REQUIRED)
 include_directories(${ZLIB_INCLUDE_DIRS})
 endif(WIN32)
 
-add_subdirectory(src)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 
 

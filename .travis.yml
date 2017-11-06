@@ -29,5 +29,5 @@ after_success: |
     export GCOV="gcov"
   fi
   if [ "$COVERAGE" = "On" ]; then
-     coveralls --gcov ${GCOV} --include src --gcov-options '\-lp'
+     coveralls --gcov ${GCOV} --include include --gcov-options '\-lp'
   fi
