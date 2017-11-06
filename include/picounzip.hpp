@@ -95,7 +95,7 @@ struct unzip_error : std::runtime_error {
       : std::runtime_error(what_arg) {}
   explicit unzip_error(const error_info &error)
       : std::runtime_error(error.message), error(error) {}
-
+  virtual ~unzip_error() throw() {}
   error_info error;
 };
 
